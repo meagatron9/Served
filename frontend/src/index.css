@@ -1,0 +1,16 @@
+/* Global page reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #575251; /* same as your previous version */
+}
+
+/* Optional smoothing */
+html, body {
+  height: 100%;
+}

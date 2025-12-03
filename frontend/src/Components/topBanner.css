@@ -61,3 +61,40 @@
 .join-board-btn:hover {
   background: #666;
 }
+/* Add to existing stickyNote.css */
+
+.note-title {
+  font-weight: bold;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+  padding: 4px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+  word-break: break-word;
+}
+
+.note-photo {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: cover;
+  margin-bottom: 6px;
+  border-radius: 4px;
+}
+
+.note-caption {
+  font-size: 0.7rem;
+  padding: 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.15);
+  font-style: italic;
+  color: #555;
+  margin-top: auto;
+}
+
+.sticky-note {
+  min-width: 180px;
+  max-width: 400px;
+  width: 100%;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+}

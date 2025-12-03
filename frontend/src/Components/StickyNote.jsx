@@ -1,48 +1,237 @@
 import { useState, useRef, useEffect } from "react";
 import { Pencil } from "lucide-react";
-import "./stickyNote.css";
+
+const styles = `
+.sticky-note {
+  width: 180px;
+  height: 180px;
+  padding: 8px;
+  border-radius: 3px;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--note-color, #fff59d);
+  position: relative;
+  overflow: hidden;
+}
+
+.note-style-plain {
+  background-image: none;
+}
+
+.note-style-lined {
+  --line-height: 1.4rem;
+  line-height: var(--line-height);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--line-height) - 1px),
+    rgba(40, 40, 40, 0.3) calc(var(--line-height) - 1px),
+    rgba(40, 40, 40, 0.3) var(--line-height)
+  );
+  background-position-y: 10px;
+}
+
+.note-style-grid {
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      rgba(40, 40, 40, 0.2) 0,
+      rgba(40, 40, 40, 0.2) 1px,
+      transparent 1px,
+      transparent 15px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(40, 40, 40, 0.2) 0,
+      rgba(40, 40, 40, 0.2) 1px,
+      transparent 1px,
+      transparent 15px
+    );
+}
+
+.note-title {
+  font-weight: bold;
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+  padding: 2px 4px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+  word-break: break-word;
+}
+
+.note-photo {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: cover;
+  margin-bottom: 4px;
+  border-radius: 2px;
+}
+
+.sticky-note-content {
+  flex: 1;
+  padding: 4px;
+  overflow-y: auto;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.3;
+  user-select: none;
+  font-size: 0.8rem;
+}
+
+.note-caption {
+  font-size: 0.7rem;
+  padding: 2px 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.15);
+  font-style: italic;
+  color: #555;
+  margin-top: auto;
+}
+
+.delete-note-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.25);
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s ease;
+  user-select: none;
+  z-index: 10;
+}
+
+.delete-note-btn:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.hover-darken {
+  filter: brightness(0.88);
+  transition: 0.25s ease;
+}
+
+.edit-note-btn {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.28);
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.9;
+  transition: 0.2s ease;
+  z-index: 10;
+}
+
+.edit-note-btn:hover {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.sticky-note-content.editing {
+  user-select: text;
+  cursor: text;
+  border: 1px dashed #333;
+  background: rgba(255, 255, 255, 0.4);
+  padding: 6px;
+}
+
+.note-toolbar-wrapper {
+  position: absolute;
+  width: max-content;
+  z-index: 999;
+}
+
+.text-style-toolbar {
+  display: flex;
+  gap: 4px;
+  background: white;
+  padding: 6px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.text-style-btn {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: 0.2s ease;
+}
+
+.text-style-btn:hover {
+  background: #f0f0f0;
+}
+
+.done-btn {
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.done-btn:hover {
+  background: #45a047;
+}
+`;
 
 export default function StickyNote({ note, notes, setNotes }) {
+  // Guard against missing props
+  if (!note || !notes || !setNotes) {
+    return null;
+  }
+
   const [isDragging, setIsDragging] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
-  // timers stored in refs (no stale state, no extra re-renders)
-  const editHoverTimerRef = useRef(null);      // 3s -> show edit button
-  const bringTopTimerRef = useRef(null);       // 5s -> bring to top / message
+  const editHoverTimerRef = useRef(null);
+  const bringTopTimerRef = useRef(null);
 
   const [showEditBtn, setShowEditBtn] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   const contentRef = useRef(null);
-
-  // selection for rich-text editing
   const savedSelection = useRef(null);
 
-  // overlap message
   const [message, setMessage] = useState(null);
   const [messagePos, setMessagePos] = useState(null);
+  const hoverPosRef = useRef(null);
 
-  // ------------------------------
-  // SELECTION HELPERS
-  // ------------------------------
   function saveSelection() {
     const sel = window.getSelection();
     if (sel.rangeCount > 0) {
-      savedSelection.current = sel.getRangeAt(0);
+      savedSelection.current = sel.getRangeAt(0).cloneRange();
     }
   }
 
   function restoreSelection() {
+    if (!savedSelection.current) return;
     const sel = window.getSelection();
     sel.removeAllRanges();
-    if (savedSelection.current) {
+    try {
       sel.addRange(savedSelection.current);
+    } catch (e) {
+      console.warn("Could not restore selection:", e);
     }
   }
 
-  // ------------------------------
-  // TIMER HELPERS
-  // ------------------------------
   function clearHoverTimers() {
     if (editHoverTimerRef.current) {
       clearTimeout(editHoverTimerRef.current);
@@ -54,9 +243,6 @@ export default function StickyNote({ note, notes, setNotes }) {
     }
   }
 
-  // ------------------------------
-  // OVERLAP CALCULATION
-  // ------------------------------
   function computeOverlapInfo() {
     const NOTE_SIZE = 180;
     const thisX = note.x;
@@ -97,7 +283,7 @@ export default function StickyNote({ note, notes, setNotes }) {
     }
 
     const ratio = noteArea === 0 ? 0 : totalOverlapArea / noteArea;
-    const isMostlyCovered = ratio >= 0.6; // your 60% rule
+    const isMostlyCovered = ratio >= 0.6;
 
     return { isMostlyCovered, overlappingCount };
   }
@@ -119,47 +305,35 @@ export default function StickyNote({ note, notes, setNotes }) {
     const { isMostlyCovered, overlappingCount } = computeOverlapInfo();
 
     if (!isMostlyCovered) {
-      // visible enough -> bring to top
       bringNoteToTop();
     } else {
-      // mostly covered -> show message below cursor
-      if (overlappingCount > 0 && messagePos) {
-        setMessage(`${overlappingCount} notes are overlapping this note`);
-      } else if (messagePos) {
+      if (overlappingCount > 0) {
+        setMessage(`${overlappingCount} note${overlappingCount > 1 ? 's are' : ' is'} overlapping this note`);
+      } else {
         setMessage("Notes are overlapping this note");
       }
 
-      if (messagePos) {
-        const hideTimer = setTimeout(() => {
-          setMessage(null);
-        }, 3000);
-        // no need to store hide timer; it only affects message
-        return () => clearTimeout(hideTimer);
-      }
+      setTimeout(() => {
+        setMessage(null);
+      }, 3000);
     }
   }
 
-  // ------------------------------
-  // HOVER LOGIC (3s + 5s)
-  // ------------------------------
   function handleMouseEnter(e) {
-    if (isEditing) return;
+    if (isEditing || isDragging) return;
 
-    // track a starting position for message (center of note)
     const rect = e.currentTarget.getBoundingClientRect();
-    setMessagePos({
+    hoverPosRef.current = {
       x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2 + 12,
-    });
+      y: rect.bottom + 8,
+    };
 
     clearHoverTimers();
 
-    // 3s -> show edit button
     editHoverTimerRef.current = setTimeout(() => {
       setShowEditBtn(true);
     }, 3000);
 
-    // 5s -> bring to top or show overlap message
     bringTopTimerRef.current = setTimeout(() => {
       handleFiveSecondHover();
     }, 5000);
@@ -169,29 +343,31 @@ export default function StickyNote({ note, notes, setNotes }) {
     clearHoverTimers();
     setShowEditBtn(false);
     setMessage(null);
+    hoverPosRef.current = null;
   }
 
-  // track cursor for positioning the message under the cursor
-  function handleMouseMoveWrapper(e) {
-    setMessagePos({
-      x: e.clientX,
-      y: e.clientY + 12,
-    });
-
-    handleMouseMove(e);
+  function handleMouseMoveOnNote(e) {
+    if (!isDragging && hoverPosRef.current) {
+      setMessagePos({
+        x: e.clientX,
+        y: e.clientY + 12,
+      });
+    }
   }
 
-  // ------------------------------
-  // DRAG LOGIC
-  // ------------------------------
   function handleMouseDown(e) {
     if (isEditing) {
       e.stopPropagation();
       return;
     }
 
+    if (e.target.closest('.delete-note-btn')) {
+      return;
+    }
+
     setShowEditBtn(false);
     clearHoverTimers();
+    setMessage(null);
 
     setIsDragging(true);
 
@@ -202,53 +378,54 @@ export default function StickyNote({ note, notes, setNotes }) {
     });
   }
 
-  function handleMouseMove(e) {
-    if (isEditing) return;
+  useEffect(() => {
     if (!isDragging) return;
 
-    clearHoverTimers();
-    setShowEditBtn(false);
+    function handleMouseMove(e) {
+      const board = document.querySelector(".pinterest-board");
+      if (!board) return;
 
-    const board = e.currentTarget.closest(".notes-board");
-    if (!board) return;
+      const boardRect = board.getBoundingClientRect();
+      const noteWidth = 180;
+      const noteHeight = 180;
 
-    const boardRect = board.getBoundingClientRect();
-    const noteWidth = 180;
-    const noteHeight = 180;
+      let newX = e.clientX - boardRect.left - offset.x;
+      let newY = e.clientY - boardRect.top - offset.y;
 
-    let newX = e.clientX - boardRect.left - offset.x;
-    let newY = e.clientY - boardRect.top - offset.y;
+      if (newX < 0) newX = 0;
+      if (newX > boardRect.width - noteWidth)
+        newX = boardRect.width - noteWidth;
 
-    if (newX < 0) newX = 0;
-    if (newX > boardRect.width - noteWidth)
-      newX = boardRect.width - noteWidth;
+      if (newY < 0) newY = 0;
+      if (newY > boardRect.height - noteHeight)
+        newY = boardRect.height - noteHeight;
 
-    if (newY < 0) newY = 0;
-    if (newY > boardRect.height - noteHeight)
-      newY = boardRect.height - noteHeight;
+      setNotes((prevNotes) =>
+        prevNotes.map((n) =>
+          n.id === note.id ? { ...n, x: newX, y: newY } : n
+        )
+      );
+    }
 
-    setNotes(
-      notes.map((n) =>
-        n.id === note.id ? { ...n, x: newX, y: newY } : n
-      )
-    );
-  }
+    function handleMouseUp() {
+      setIsDragging(false);
+    }
 
-  function handleMouseUp() {
-    setIsDragging(false);
-  }
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
 
-  // cleanup on unmount
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging, offset, note.id, setNotes]);
+
   useEffect(() => {
     return () => {
       clearHoverTimers();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ------------------------------
-  // EDIT MODE
-  // ------------------------------
   function enterEditMode() {
     setIsEditing(true);
     setShowEditBtn(false);
@@ -257,6 +434,12 @@ export default function StickyNote({ note, notes, setNotes }) {
     setTimeout(() => {
       if (contentRef.current) {
         contentRef.current.focus();
+        const range = document.createRange();
+        const sel = window.getSelection();
+        range.selectNodeContents(contentRef.current);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
         saveSelection();
       }
     }, 30);
@@ -274,9 +457,6 @@ export default function StickyNote({ note, notes, setNotes }) {
     setIsEditing(false);
   }
 
-  // ------------------------------
-  // TEXT COMMANDS
-  // ------------------------------
   function applyCommand(cmd) {
     if (!contentRef.current) return;
     contentRef.current.focus();
@@ -285,9 +465,6 @@ export default function StickyNote({ note, notes, setNotes }) {
     saveSelection();
   }
 
-  // ------------------------------
-  // STYLES
-  // ------------------------------
   const style = {
     "--note-color": note.color,
     transform: `translate(${note.x}px, ${note.y}px) rotate(${note.rotation}deg)`,
@@ -295,7 +472,7 @@ export default function StickyNote({ note, notes, setNotes }) {
       note.shadowDepth * 2
     }px rgba(0,0,0,0.25)`,
     position: "absolute",
-    cursor: isDragging ? "grabbing" : "grab",
+    cursor: isDragging ? "grabbing" : isEditing ? "default" : "grab",
     zIndex: note.zIndex || 1,
   };
 
@@ -303,18 +480,20 @@ export default function StickyNote({ note, notes, setNotes }) {
     showEditBtn ? "hover-darken" : ""
   }`;
 
+  const displayMessagePos = messagePos || hoverPosRef.current;
+
   return (
     <>
+      <style>{styles}</style>
       <div
         className={styleClass}
         style={style}
         onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMoveWrapper}
-        onMouseUp={handleMouseUp}
+        onMouseMove={handleMouseMoveOnNote}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {/* EDIT BUTTON (after 3s hover) */}
+        {/* EDIT BUTTON */}
         {showEditBtn && !isEditing && (
           <button
             className="edit-note-btn"
@@ -328,17 +507,28 @@ export default function StickyNote({ note, notes, setNotes }) {
           </button>
         )}
 
-        {/* CONTENT */}
-        <div
-          className={`sticky-note-content ${isEditing ? "editing" : ""}`}
-          contentEditable={isEditing}
-          suppressContentEditableWarning={true}
-          ref={contentRef}
-          onKeyUp={saveSelection}
-          onMouseUp={saveSelection}
-          onInput={saveSelection}
-          dangerouslySetInnerHTML={{ __html: note.html }}
-        />
+        {/* TITLE */}
+        {note.title && <div className="note-title">{note.title}</div>}
+
+        {/* PHOTO */}
+        {note.photo && <img src={note.photo} alt="" className="note-photo" />}
+
+        {/* CONTENT (if exists) */}
+        {note.html && (
+          <div
+            className={`sticky-note-content ${isEditing ? "editing" : ""}`}
+            contentEditable={isEditing}
+            suppressContentEditableWarning={true}
+            ref={contentRef}
+            onKeyUp={saveSelection}
+            onMouseUp={saveSelection}
+            onInput={saveSelection}
+            dangerouslySetInnerHTML={{ __html: note.html }}
+          />
+        )}
+
+        {/* CAPTION */}
+        {note.caption && <div className="note-caption">{note.caption}</div>}
 
         {/* DELETE BUTTON */}
         {!isEditing && (
@@ -377,7 +567,7 @@ export default function StickyNote({ note, notes, setNotes }) {
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => applyCommand("italic")}
             >
-              <i>i</i>
+              <i>I</i>
             </button>
 
             <button
@@ -386,7 +576,7 @@ export default function StickyNote({ note, notes, setNotes }) {
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => applyCommand("underline")}
             >
-              <u>u</u>
+              <u>U</u>
             </button>
 
             <button
@@ -401,14 +591,15 @@ export default function StickyNote({ note, notes, setNotes }) {
         </div>
       )}
 
-      {/* OVERLAP MESSAGE BELOW CURSOR */}
-      {message && messagePos && (
+      {/* OVERLAP MESSAGE */}
+      {message && displayMessagePos && (
         <div
           className="overlap-message"
           style={{
             position: "fixed",
-            left: messagePos.x + 8,
-            top: messagePos.y + 8,
+            left: displayMessagePos.x,
+            top: displayMessagePos.y,
+            transform: "translateX(-50%)",
             background: "rgba(0,0,0,0.8)",
             color: "#fff",
             padding: "6px 10px",
@@ -416,6 +607,7 @@ export default function StickyNote({ note, notes, setNotes }) {
             fontSize: "0.75rem",
             pointerEvents: "none",
             zIndex: 9999,
+            whiteSpace: "nowrap",
           }}
         >
           {message}

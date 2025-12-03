@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Palette, X } from "lucide-react";
 import StickyNote from "../Components/StickyNote.jsx";
 import "./Dashboard.css";
@@ -16,6 +16,38 @@ export default function Dashboard() {
   const [noteCaption, setNoteCaption] = useState("");
 
   const fileInputRef = useRef(null);
+
+  // Load notes from localStorage on component mount
+  useEffect(() => {
+    console.log('Loading notes from localStorage...');
+    const savedNotes = localStorage.getItem('dashboardNotes');
+    console.log('Saved notes:', savedNotes);
+    if (savedNotes && savedNotes !== 'undefined' && savedNotes !== 'null') {
+      try {
+        const parsedNotes = JSON.parse(savedNotes);
+        console.log('Parsed notes:', parsedNotes);
+        if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
+          console.log('Setting notes state with:', parsedNotes);
+          setNotes(parsedNotes);
+        }
+      } catch (error) {
+        console.error('Failed to load notes from localStorage:', error);
+      }
+    } else {
+      console.log('No saved notes found or invalid data');
+    }
+  }, []);
+
+  // Save notes to localStorage whenever they change
+  useEffect(() => {
+    console.log('Saving notes to localStorage:', notes);
+    try {
+      localStorage.setItem('dashboardNotes', JSON.stringify(notes));
+      console.log('Save successful! Verify:', localStorage.getItem('dashboardNotes'));
+    } catch (error) {
+      console.error('Failed to save to localStorage:', error);
+    }
+  }, [notes]);
 
   const PALETTE_OPTIONS = [
     { id: "yellow", type: "color", value: "#fff59d" },
@@ -53,6 +85,10 @@ export default function Dashboard() {
       return;
     }
 
+    // Calculate position for new note (spread them out)
+    const columnIndex = notes.length % 4;
+    const rowIndex = Math.floor(notes.length / 4);
+    
     const newNote = {
       id: Date.now(),
       title: noteTitle,
@@ -63,9 +99,11 @@ export default function Dashboard() {
       rotation: (Math.random() * 4 - 2).toFixed(2),
       shadowDepth: Math.floor(Math.random() * 3) + 2,
       zIndex: 1,
+      x: columnIndex * 200,
+      y: rowIndex * 200,
     };
 
-    setNotes([newNote, ...notes]);
+    setNotes([...notes, newNote]);
 
     // Clear form and close modal
     setNoteTitle("");
@@ -207,9 +245,7 @@ export default function Dashboard() {
       {/* Pinterest-style Board */}
       <div className="pinterest-board">
         {notes.map((note) => (
-          <div key={note.id} className="pinterest-item">
-            <StickyNote note={note} notes={notes} setNotes={setNotes} />
-          </div>
+          <StickyNote key={note.id} note={note} notes={notes} setNotes={setNotes} />
         ))}
       </div>
 
